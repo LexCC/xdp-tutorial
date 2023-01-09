@@ -89,6 +89,7 @@ int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
 
 	/* Existing/previous XDP prog might not have cleaned up */
 	if (access(map_filename, F_OK ) != -1 ) {
+
 		if (verbose)
 			printf(" - Unpinning (remove) prev maps in %s/\n",
 			       pin_dir);
@@ -114,7 +115,7 @@ int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
 int main(int argc, char **argv)
 {
 	struct bpf_object *bpf_obj;
-	int err;
+	//int err;
 
 	struct config cfg = {
 		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
@@ -137,6 +138,33 @@ int main(int argc, char **argv)
 		return xdp_link_detach(cfg.ifindex, cfg.xdp_flags, 0);
 	}
 
+	char map_filename[PATH_MAX];
+	char pin_dir[PATH_MAX];
+	int len;
+
+	len = snprintf(pin_dir, PATH_MAX, "%s/%s", pin_basedir, cfg.ifname);
+	if (len < 0) {
+		fprintf(stderr, "ERR: creating pin dirname\n");
+		return EXIT_FAIL_OPTION;
+	}
+
+	len = snprintf(map_filename, PATH_MAX, "%s/%s/%s",
+		       pin_basedir, cfg.ifname, map_name);
+	if (len < 0) {
+		fprintf(stderr, "ERR: creating map_name\n");
+		return EXIT_FAIL_OPTION;
+	}
+
+	// if (access(map_filename, F_OK ) != -1 ) {
+	// 	int pinned_map_fd = bpf_obj_get(map_filename);
+	// 	struct bpf_object *obj = bpf_object__open(cfg.filename);
+	// 	struct bpf_map    *map = bpf_object__find_map_by_name(obj, map_name);
+	// 	bpf_map__reuse_fd(map, pinned_map_fd);
+	// 	bpf_object__load(obj);
+	// 	printf(" - Reuse the prev map instead of create a new one\n");
+	// 	return EXIT_OK;
+	// }
+
 	bpf_obj = load_bpf_and_xdp_attach(&cfg);
 	if (!bpf_obj)
 		return EXIT_FAIL_BPF;
@@ -149,11 +177,11 @@ int main(int argc, char **argv)
 	}
 
 	/* Use the --dev name as subdir for exporting/pinning maps */
-	err = pin_maps_in_bpf_object(bpf_obj, cfg.ifname);
-	if (err) {
-		fprintf(stderr, "ERR: pinning maps\n");
-		return err;
-	}
+	// err = pin_maps_in_bpf_object(bpf_obj, cfg.ifname);
+	// if (err) {
+	// 	fprintf(stderr, "ERR: pinning maps\n");
+	// 	return err;
+	// }
 
 	return EXIT_OK;
 }
