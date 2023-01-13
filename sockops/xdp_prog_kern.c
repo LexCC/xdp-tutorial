@@ -125,49 +125,45 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 	return len;
 }
 
-static __always_inline
-int xdp_stats_record_action(struct sock_key *key, struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
+static __always_inline void print_ip(unsigned int ip)
 {
-	key->sip4 = iphdr->saddr;
-    key->dip4 = iphdr->daddr;
-	key->family = 1;
-    key->dport = tcphdr->dest;
-    key->sport = tcphdr->source;
+    unsigned char bytes[4];
+    bytes[0] = ip & 0xFF;
+    bytes[1] = (ip >> 8) & 0xFF;
+    bytes[2] = (ip >> 16) & 0xFF;
+    bytes[3] = (ip >> 24) & 0xFF;   
 
-	reservation->sip4 = key->sip4;
-	reservation->dip4 = key->dip4;
-	reservation->dport = key->dport;
-	reservation->sport = key->sport;
+	printk("%d.%d.%d\n", bytes[1], bytes[2], bytes[3]);
+}
 
-	struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
-	if(!first_item) {
-		printk("Not find the item in map!!!!\n");
+static __always_inline
+int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
+{
+	reservation->sip4 = iphdr->saddr;
+	reservation->dip4 = iphdr->daddr;
+	reservation->dport = tcphdr->dest;
+	reservation->sport = tcphdr->source;
+
+	__u32 key = 0;
+	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
+	if(!flows) {
+		printk("Socket: Not found the existed connection map\n");
 		return XDP_PASS;
 	}
-	printk("Find the item in map!!!!\n");
-
 	
-	// struct sock_ops_map *first_item = bpf_map_lookup_elem(&sock_ops_map, key);
-	// if(!first_item)
-	// 	return XDP_ABORTED;
-	// void *data_end = (void *)(long)ctx->data_end;
-	// void *data     = (void *)(long)ctx->data;
+	if(flows->count >= MAX_CONN) {
+		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
+		if(first_item) {
+			printk("NIC: Existed connection, let go!!!!\n");
+			return XDP_PASS;
+		}
+		printk("NIC: Existed flows are saturated!!!!\n");
+		return XDP_DROP;
+	}
+		
+	printk("current flow is acceptable, current count: %d\n", flows->count);
+	print_ip(reservation->sip4);
 
-
-	// /* Lookup in kernel BPF-side return pointer to actual data record */
-	// struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &action);
-	// if (!rec)
-	// 	return XDP_ABORTED;
-
-	// /* Calculate packet length */
-	// __u64 bytes = data_end - data;
-
-	// /* BPF_MAP_TYPE_PERCPU_ARRAY returns a data record specific to current
-	//  * CPU and XDP hooks runs under Softirq, which makes it safe to update
-	//  * without atomic operations.
-	//  */
-	// rec->rx_packets++;
-	// rec->rx_bytes += bytes;
 
 	return XDP_PASS;
 }
@@ -207,9 +203,8 @@ int  xdp_pass_func(struct xdp_md *ctx)
 			action = XDP_ABORTED;
 			goto out;
 		}
-		struct sock_key key = {};
 		struct flow_key reservation = {};
-		return xdp_stats_record_action(&key, iphdr, tcphdr, &reservation);
+		return xdp_stats_record_action(iphdr, tcphdr, &reservation);
 	}
 
 out:

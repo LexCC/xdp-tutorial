@@ -9,6 +9,7 @@ sudo rm /sys/fs/bpf/bpf_redir
 sudo bpftool cgroup detach /sys/fs/cgroup/unified/ sock_ops pinned /sys/fs/bpf/bpf_sockops
 sudo rm /sys/fs/bpf/bpf_sockops
 sudo rm /sys/fs/bpf/reservation_ops_map
+sudo rm /sys/fs/bpf/existed_connection_map
 
 # Delete the map
 sudo rm /sys/fs/bpf/sock_ops_map
