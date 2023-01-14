@@ -40,6 +40,10 @@
 #define MAX_CONN 1
 #endif
 
+#ifndef SOCKET_TIMEOUT_SEC
+#define SOCKET_TIMEOUT_SEC 1
+#endif
+
 #ifndef BPF_FUNC
 #define BPF_FUNC(NAME, ...) 	\
 	(*NAME)(__VA_ARGS__) = (void *) BPF_FUNC_##NAME

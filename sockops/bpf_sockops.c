@@ -1,4 +1,6 @@
 #include <linux/bpf.h>
+#include <asm-generic/socket.h>
+#include <netinet/tcp.h>
 
 #include "bpf_sockops.h"
 
@@ -58,16 +60,37 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     if(flow.dport != (bpf_htonl(SWIFT_PROXY_SERVER_PORT) >> 16)) {
         return 0;
     }
-    
+    int rv = skops->reply;
+    struct timeval timeout;      
+    timeout.tv_sec = SOCKET_TIMEOUT_SEC;
+    timeout.tv_usec = 0;
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
             bpf_sock_ops_ipv4(skops, &flow);
+            bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+
+           rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
+           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
+            break;
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-            bpf_sock_ops_ipv4(skops, &flow);
+        //     bpf_sock_ops_ipv4(skops, &flow);
+        //     bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+
+        //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
+        //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
+            break;
+        case BPF_SOCK_OPS_STATE_CB:
+            printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
+            // if(skops->args == BPF_TCP_CLOSE) {
+
+            // }
             break;
         default:
             break;
     }
+    skops->reply = rv;
     return 0;
 }
 
