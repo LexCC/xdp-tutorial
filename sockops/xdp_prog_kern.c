@@ -125,16 +125,16 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 	return len;
 }
 
-static __always_inline void print_ip(unsigned int ip)
-{
-    unsigned char bytes[4];
-    bytes[0] = ip & 0xFF;
-    bytes[1] = (ip >> 8) & 0xFF;
-    bytes[2] = (ip >> 16) & 0xFF;
-    bytes[3] = (ip >> 24) & 0xFF;   
+// static __always_inline void print_ip(unsigned int ip)
+// {
+//     unsigned char bytes[4];
+//     bytes[0] = ip & 0xFF;
+//     bytes[1] = (ip >> 8) & 0xFF;
+//     bytes[2] = (ip >> 16) & 0xFF;
+//     bytes[3] = (ip >> 24) & 0xFF;   
 
-	printk("%d.%d.%d\n", bytes[1], bytes[2], bytes[3]);
-}
+// 	printk("%d.%d.%d\n", bytes[1], bytes[2], bytes[3]);
+// }
 
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
@@ -162,7 +162,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	}
 		
 	printk("current flow is acceptable, current count: %d\n", flows->count);
-	print_ip(reservation->sip4);
 
 
 	return XDP_PASS;
@@ -171,7 +170,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 SEC("xdp_pass")
 int  xdp_pass_func(struct xdp_md *ctx)
 {
-	int action = XDP_PASS;
 	int eth_type, ip_type;
 	struct ethhdr *eth;
 	struct iphdr *iphdr;
@@ -183,7 +181,6 @@ int  xdp_pass_func(struct xdp_md *ctx)
 
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
 	if (eth_type < 0) {
-		action = XDP_ABORTED;
 		goto out;
 	}
 
@@ -195,12 +192,13 @@ int  xdp_pass_func(struct xdp_md *ctx)
 
 	if (ip_type == IPPROTO_UDP) {
 		if (parse_udphdr(&nh, data_end, &udphdr) < 0) {
-			action = XDP_ABORTED;
 			goto out;
 		}
 	} else if (ip_type == IPPROTO_TCP) {
 		if (parse_tcphdr(&nh, data_end, &tcphdr) < 0) {
-			action = XDP_ABORTED;
+			goto out;
+		}
+		if(tcphdr->dest != bpf_htons(SWIFT_PROXY_SERVER_PORT)) {
 			goto out;
 		}
 		struct flow_key reservation = {};

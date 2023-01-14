@@ -37,7 +37,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 1
+#define MAX_CONN 2
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC

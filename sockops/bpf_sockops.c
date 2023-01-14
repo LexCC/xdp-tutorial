@@ -47,17 +47,31 @@ void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops, struct flow_key *flow)
     }
 }
 
+// static void print_ip(unsigned int ip)
+// {
+//     unsigned char bytes[4];
+//     bytes[0] = ip & 0xFF;
+//     bytes[1] = (ip >> 8) & 0xFF;
+//     bytes[2] = (ip >> 16) & 0xFF;
+//     bytes[3] = (ip >> 24) & 0xFF;   
+
+// 	printk("%d.%d.%d\n", bytes[2], bytes[1], bytes[0]);
+// }
+
 __section("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)
 {
+    
     // AF_INET
     if(skops->family != 2) {
         return 0;
     }
-
+    
     struct flow_key flow = {};
     extract_key4_from_ops(skops, &flow);
-    if(flow.dport != (bpf_htonl(SWIFT_PROXY_SERVER_PORT) >> 16)) {
+    // flow->sip4:flow->sport == server IP: server port
+    // flow->dip4:flow->dport == client IP: client port
+    if((bpf_ntohl(flow.sport) >> 16) != SWIFT_PROXY_SERVER_PORT) {
         return 0;
     }
     int rv = skops->reply;
@@ -74,12 +88,12 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
            rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
             break;
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        //     bpf_sock_ops_ipv4(skops, &flow);
-        //     bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
+            bpf_sock_ops_ipv4(skops, &flow);
+            bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
 
-        //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-        //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
-        //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
+           rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
+           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
             break;
         case BPF_SOCK_OPS_STATE_CB:
             printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
