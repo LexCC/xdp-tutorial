@@ -139,10 +139,19 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-	reservation->sip4 = iphdr->saddr;
-	reservation->dip4 = iphdr->daddr;
-	reservation->dport = tcphdr->dest;
-	reservation->sport = tcphdr->source;
+	// reservation->sip4 = iphdr->saddr;
+	// reservation->dip4 = iphdr->daddr;
+	// reservation->dport = tcphdr->dest;
+	// reservation->sport = tcphdr->source;
+
+	// Reservation map format:
+	// SIP:SPort = Server
+	// DIP:DPort = Client
+	// Format to reservation map for client request
+	reservation->sip4 = iphdr->daddr;
+	reservation->dip4 = iphdr->saddr;
+	reservation->dport = tcphdr->source;
+	reservation->sport = tcphdr->dest;
 
 	__u32 key = 0;
 	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
@@ -157,7 +166,11 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 			printk("NIC: Existed connection, let go!!!!\n");
 			return XDP_PASS;
 		}
-		printk("NIC: Existed flows are saturated!!!!\n");
+		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
+		// printk("sip: %u\n", reservation->sip4);
+        // printk("dip: %u\n", reservation->dip4);
+        // printk("sport: %u\n", reservation->sport);
+        // printk("dport: %u\n", reservation->dport);
 		return XDP_DROP;
 	}
 		
@@ -210,32 +223,3 @@ out:
 }
 
 char _license[] SEC("license") = "GPL";
-
-/* Copied from: $KERNEL/include/uapi/linux/bpf.h
- *
- * User return codes for XDP prog type.
- * A valid XDP program must return one of these defined values. All other
- * return codes are reserved for future use. Unknown return codes will
- * result in packet drops and a warning via bpf_warn_invalid_xdp_action().
- *
-enum xdp_action {
-	XDP_ABORTED = 0,
-	XDP_DROP,
-	XDP_PASS,
-	XDP_TX,
-	XDP_REDIRECT,
-};
-
- * user accessible metadata for XDP packet hook
- * new fields must be added to the end of this structure
- *
-struct xdp_md {
-	// (Note: type __u32 is NOT the real-type)
-	__u32 data;
-	__u32 data_end;
-	__u32 data_meta;
-	// Below access go through struct xdp_rxq_info
-	__u32 ingress_ifindex; // rxq->dev->ifindex
-	__u32 rx_queue_index;  // rxq->queue_index
-};
-*/

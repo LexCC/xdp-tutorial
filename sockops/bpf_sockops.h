@@ -37,7 +37,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 2
+#define MAX_CONN 1
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -76,8 +76,7 @@ struct flow_key
 } __attribute__((packed));
 
 struct connection {
-	__u64 count;
-	__u64 pad1;
+	__u32 count;
 };
 
 struct bpf_map_def SEC("maps") existed_connection_map = {
