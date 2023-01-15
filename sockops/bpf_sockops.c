@@ -60,12 +60,12 @@ void delete_sock_from_maps(struct flow_key *flow) {
         printk("Socket: Not found the existed connection map\n");
         return;
     }
-    (void) __sync_add_and_fetch(&curr_connection->count, -1);
 
     if(bpf_map_delete_elem(&reservation_ops_map, flow) < 0) {
         printk("Error: delete flow from map\n");
         return;
     }
+    (void) __sync_add_and_fetch(&curr_connection->count, -1);
     
     printk("Success: delete flow from map\n");
 }
@@ -98,7 +98,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     }
     int rv = skops->reply;
     struct timeval timeout;      
-    timeout.tv_sec = SOCKET_TIMEOUT_SEC;
+    timeout.tv_sec = 15;
     timeout.tv_usec = 0;
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
@@ -106,8 +106,8 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
             bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
 
            rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
-           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
+           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
             break;
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         //     bpf_sock_ops_ipv4(skops, &flow);

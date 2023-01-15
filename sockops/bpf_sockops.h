@@ -33,7 +33,7 @@
 #endif
 
 #ifndef SWIFT_PROXY_SERVER_PORT
-#define SWIFT_PROXY_SERVER_PORT 4000
+#define SWIFT_PROXY_SERVER_PORT 8080
 #endif
 
 #ifndef MAX_CONN
