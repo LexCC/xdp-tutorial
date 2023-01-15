@@ -67,12 +67,12 @@ static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
 struct flow_key
 {
-	__u32 sip4;
-	__u32 dip4;
+	__u32 server_ip4;
+	__u32 client_ip4;
 	__u32 pad1;
 	__u32 pad2;
-	__u32 sport;
-	__u32 dport;
+	__u32 server_port;
+	__u32 client_port;
 } __attribute__((packed));
 
 struct connection {

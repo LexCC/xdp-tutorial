@@ -139,19 +139,11 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-	// reservation->sip4 = iphdr->saddr;
-	// reservation->dip4 = iphdr->daddr;
-	// reservation->dport = tcphdr->dest;
-	// reservation->sport = tcphdr->source;
-
-	// Reservation map format:
-	// SIP:SPort = Server
-	// DIP:DPort = Client
-	// Format to reservation map for client request
-	reservation->sip4 = iphdr->daddr;
-	reservation->dip4 = iphdr->saddr;
-	reservation->dport = tcphdr->source;
-	reservation->sport = tcphdr->dest;
+	reservation->server_ip4 = iphdr->daddr;
+	reservation->server_port = tcphdr->dest;
+	reservation->client_ip4 = iphdr->saddr;
+	reservation->client_port = tcphdr->source;
+	
 
 	__u32 key = 0;
 	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
@@ -167,10 +159,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 			return XDP_PASS;
 		}
 		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
-		// printk("sip: %u\n", reservation->sip4);
-        // printk("dip: %u\n", reservation->dip4);
-        // printk("sport: %u\n", reservation->sport);
-        // printk("dport: %u\n", reservation->dport);
 		return XDP_DROP;
 	}
 		

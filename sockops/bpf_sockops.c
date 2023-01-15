@@ -10,16 +10,10 @@
 static inline
 void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 {
-    // flow->sip4 = ops->remote_ip4;
-    // flow->sport = FORCE_READ(ops->remote_port) >> 16;
-	// flow->dip4 = ops->local_ip4;
-	// flow->dport = (bpf_htonl(ops->local_port) >> 16);
-	
-
-    flow->sip4 = ops->local_ip4;
-	flow->dip4 = ops->remote_ip4;
-	flow->dport = FORCE_READ(ops->remote_port) >> 16;
-	flow->sport = (bpf_htonl(ops->local_port) >> 16);
+    flow->server_ip4 = ops->local_ip4;
+    flow->server_port = (bpf_htonl(ops->local_port) >> 16);
+	flow->client_ip4 = ops->remote_ip4;
+	flow->client_port = FORCE_READ(ops->remote_port) >> 16;
 }
 
 /*
@@ -99,7 +93,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     extract_key4_from_ops(skops, &flow);
     // flow->sip4:flow->sport == server IP: server port
     // flow->dip4:flow->dport == client IP: client port
-    if((bpf_ntohl(flow.sport) >> 16) != SWIFT_PROXY_SERVER_PORT) {
+    if((bpf_ntohl(flow.server_port) >> 16) != SWIFT_PROXY_SERVER_PORT) {
         return 0;
     }
     int rv = skops->reply;
