@@ -66,12 +66,13 @@ void delete_sock_from_maps(struct flow_key *flow) {
         printk("Socket: Not found the existed connection map\n");
         return;
     }
+    (void) __sync_add_and_fetch(&curr_connection->count, -1);
 
     if(bpf_map_delete_elem(&reservation_ops_map, flow) < 0) {
         printk("Error: delete flow from map\n");
         return;
     }
-    (void) __sync_add_and_fetch(&curr_connection->count, -1);
+    
     printk("Success: delete flow from map\n");
 }
 
