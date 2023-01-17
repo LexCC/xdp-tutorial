@@ -10,8 +10,8 @@
 static inline
 void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 {
-    flow->server_ip4 = ops->local_ip4;
-    flow->server_port = (bpf_htonl(ops->local_port) >> 16);
+ //   flow->server_ip4 = ops->local_ip4;
+ //   flow->server_port = (bpf_htonl(ops->local_port) >> 16);
 	flow->client_ip4 = ops->remote_ip4;
 	flow->client_port = FORCE_READ(ops->remote_port) >> 16;
 }
@@ -24,7 +24,7 @@ void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops, struct flow_key *flow)
 { 
     int ret;
 
-    int v = 1;
+    char v = 0;
     __u32 key = 0;
     struct connection *curr_connection;
     curr_connection = bpf_map_lookup_elem(&existed_connection_map, &key);
@@ -62,12 +62,12 @@ void delete_sock_from_maps(struct flow_key *flow) {
     }
 
     if(bpf_map_delete_elem(&reservation_ops_map, flow) < 0) {
-        printk("Error: delete flow from map\n");
+ //       printk("Error: delete flow from map\n");
         return;
     }
     (void) __sync_add_and_fetch(&curr_connection->count, -1);
     
-    printk("Success: delete flow from map\n");
+//    printk("Success: delete flow from map\n");
 }
 
 // static void print_ip(unsigned int ip)
@@ -93,21 +93,21 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     extract_key4_from_ops(skops, &flow);
     // flow->sip4:flow->sport == server IP: server port
     // flow->dip4:flow->dport == client IP: client port
-    if((bpf_ntohl(flow.server_port) >> 16) != SWIFT_PROXY_SERVER_PORT) {
+    if((bpf_ntohl((bpf_htonl(skops->local_port) >> 16)) >> 16) != SWIFT_PROXY_SERVER_PORT) {
         return 0;
     }
     int rv = skops->reply;
     struct timeval timeout;      
-    timeout.tv_sec = 15;
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
             bpf_sock_ops_ipv4(skops, &flow);
             bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
 
-           rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+        //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+        //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
             break;
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         //     bpf_sock_ops_ipv4(skops, &flow);
@@ -120,7 +120,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
         case BPF_SOCK_OPS_STATE_CB:
          //   printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
             if(skops->args[1] == BPF_TCP_CLOSE) {
-                printk("A socket being closed.\n");
+        //        printk("A socket being closed.\n");
                 delete_sock_from_maps(&flow);
             }
             break;
