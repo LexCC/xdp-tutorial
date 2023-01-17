@@ -147,11 +147,16 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 
 	__u32 key = 0;
 	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
+	// Allow tcp fin flag pass, avoid wierd connection state
 	if(!flows) {
-		printk("Socket: Not found the existed connection map\n");
+		printk("XDP: Not found the existed connection map\n");
 		return XDP_PASS;
 	}
-	
+	if(tcphdr->fin == 1) {
+		printk("XDP: Let TCP fin packet pass\n");
+		return XDP_PASS;
+	}
+
 	if(flows->count >= MAX_CONN) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
@@ -161,8 +166,8 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
 		return XDP_DROP;
 	}
-		
-//	printk("current flow is acceptable, current count: %d\n", flows->count);
+	
+	printk("current flow is acceptable, current count: %d\n", flows->count);
 
 
 	return XDP_PASS;
