@@ -139,8 +139,8 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-	reservation->server_ip4 = iphdr->daddr;
-	reservation->server_port = tcphdr->dest;
+//	reservation->server_ip4 = iphdr->daddr;
+//	reservation->server_port = tcphdr->dest;
 	reservation->client_ip4 = iphdr->saddr;
 	reservation->client_port = tcphdr->source;
 	
@@ -155,14 +155,14 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	if(flows->count >= MAX_CONN) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
-			printk("NIC: Existed connection, let go!!!!\n");
+		//	printk("NIC: Existed connection, let go!!!!\n");
 			return XDP_PASS;
 		}
 		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
 		return XDP_DROP;
 	}
 		
-	printk("current flow is acceptable, current count: %d\n", flows->count);
+//	printk("current flow is acceptable, current count: %d\n", flows->count);
 
 
 	return XDP_PASS;
