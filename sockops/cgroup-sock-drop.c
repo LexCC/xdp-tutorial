@@ -72,11 +72,16 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 		 
 		 __u8 tcp = ip->protocol == IPPROTO_TCP;
 		 if(tcp) {
+			
 			__u8 *ihlandversion = data;
 			__u8 ihlen = (*ihlandversion & 0xf) * 4;
 			if (data + ihlen + sizeof(struct tcphdr) > data_end) { return 0; }
 			struct tcphdr *tcp = data + ihlen;
-
+			// Notice: tcp daddr & dest means server
+			//				saddr & source means client
+			if(tcp->source != bpf_htons(SWIFT_PROXY_SERVER_PORT)) {
+				return SK_PASS;
+			}
 			if(tcp->syn == 1 && tcp->ack == 1) {
 				printk("Socket: Receive syn-ack flag, try to add entry to existed connection...\n");
 				struct flow_key flow;
