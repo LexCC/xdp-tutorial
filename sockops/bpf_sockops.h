@@ -37,7 +37,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 1
+#define MAX_CONN 5
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -67,13 +67,12 @@ static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
 struct flow_key
 {
-	__u32 server_ip4;
+//	__u32 server_ip4;
 	__u32 client_ip4;
-	__u32 pad1;
-	__u32 pad2;
-	__u32 server_port;
 	__u32 client_port;
-} __attribute__((packed));
+//	__u32 server_port;
+	
+};
 
 struct connection {
 	__u32 count;
@@ -89,7 +88,7 @@ struct bpf_map_def SEC("maps") existed_connection_map = {
 struct bpf_map_def __section("maps") reservation_ops_map = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.key_size       = sizeof(struct flow_key),
-	.value_size     = sizeof(int),
+	.value_size     = sizeof(char),
 	.max_entries    = MAX_CONN,
 	.map_flags      = 0,
 };
