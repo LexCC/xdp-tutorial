@@ -42,8 +42,10 @@ int bpf_sock_ipv4(struct flow_key *flow)
         printk("Socket: Existed connection are saturated!!!\n");
         return -1;
     }
-
+//	__u64 start = bpf_ktime_get_ns();
     ret = bpf_map_update_elem(&reservation_ops_map, flow, &v, BPF_NOEXIST);
+//	__u64 end = bpf_ktime_get_ns();
+//	printk("Update time: %llu\n", end-start);
     if(ret != 0) {
         printk("Failed: failed to update map, return code: %d\n", ret);
 		return -1;

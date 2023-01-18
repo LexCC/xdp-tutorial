@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #include <linux/bpf.h>
-#include <bpf/bpf_helpers.h>
 #include <linux/in.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -8,6 +7,7 @@
 #include <linux/ipv6.h>
 #include <linux/udp.h>
 #include <linux/tcp.h>
+#include <linux/time.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include "bpf_sockops.h"
@@ -146,7 +146,11 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	
 
 	__u32 key = 0;
+	// __u64 start = bpf_ktime_get_ns();
 	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
+	// __u64 end = bpf_ktime_get_ns();
+	// printk("Lookup time: %llu\n", end-start);
+
 	// Allow tcp fin flag pass, avoid wierd connection state
 	if(!flows) {
 		printk("XDP: Not found the existed connection map\n");
@@ -160,7 +164,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	if(flows->count >= MAX_CONN) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
-		//	printk("NIC: Existed connection, let go!!!!\n");
 			return XDP_PASS;
 		}
 		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
