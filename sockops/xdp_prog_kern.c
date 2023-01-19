@@ -178,7 +178,7 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 
 SEC("xdp_pass")
 int  xdp_pass_func(struct xdp_md *ctx)
-{
+{	
 	int eth_type, ip_type;
 	struct ethhdr *eth;
 	struct iphdr *iphdr;
@@ -211,6 +211,7 @@ int  xdp_pass_func(struct xdp_md *ctx)
 			goto out;
 		}
 		struct flow_key reservation = {};
+//		printk("Current CPU: %lu\n", bpf_get_smp_processor_id());
 		return xdp_stats_record_action(iphdr, tcphdr, &reservation);
 	}
 
