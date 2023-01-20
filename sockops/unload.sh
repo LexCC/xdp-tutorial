@@ -9,4 +9,5 @@ sudo rm /sys/fs/bpf/existed_connection_map
 
 sudo bpftool cgroup detach /sys/fs/cgroup/unified/ egress pinned /sys/fs/bpf/cgroup-sock-drop
 sudo rm /sys/fs/bpf/cgroup-sock-drop
+sudo rm /sys/fs/bpf/burst_connection_map
 

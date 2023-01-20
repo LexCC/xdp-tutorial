@@ -18,7 +18,7 @@ void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 
 static inline
 void delete_sock_from_maps(struct flow_key *flow) {
-    __u32 key = 0;
+    __u32 key = DEFAULT_KEY_OR_VALUE;
     struct connection *curr_connection;
     curr_connection = bpf_map_lookup_elem(&existed_connection_map, &key);
     if(!curr_connection) {

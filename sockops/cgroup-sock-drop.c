@@ -30,7 +30,7 @@ int bpf_sock_ipv4(struct flow_key *flow)
     int ret;
 
     char v = 0;
-    __u32 key = 0;
+    __u32 key = DEFAULT_KEY_OR_VALUE;
     struct connection *curr_connection;
     curr_connection = bpf_map_lookup_elem(&existed_connection_map, &key);
     if(!curr_connection) {
@@ -60,10 +60,10 @@ int bpf_sock_ipv4(struct flow_key *flow)
 __section("filter")
 int cgroup_socket_drop(struct __sk_buff *skb)
 {
-	__u16 port = skb->local_port;
-	if(port != (unsigned short)SWIFT_PROXY_SERVER_PORT) {
-		return SK_PASS;
-	}
+	// __u16 port = skb->local_port;
+	// if(port != (unsigned short)SWIFT_PROXY_SERVER_PORT) {
+	// 	return SK_PASS;
+	// }
 	void *data = (void *)(long)skb->data;
   	void *data_end = (void *)(long)skb->data_end;
 
@@ -81,7 +81,7 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 			struct tcphdr *tcp = data + ihlen;
 			// Notice: tcp daddr & dest means server
 			//				saddr & source means client
-			if(tcp->source != bpf_htons(SWIFT_PROXY_SERVER_PORT)) {
+			if(tcp->source != bpf_htons(SWIFT_PROXY_SERVER_PORT) || tcp->fin == 1) {
 				return SK_PASS;
 			}
 			if(tcp->syn == 1 && tcp->ack == 1) {

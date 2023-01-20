@@ -32,16 +32,32 @@
 #define FORCE_READ(X) (*(volatile typeof(X)*)&X)
 #endif
 
+#ifndef NANOSEC_PER_SEC 
+#define NANOSEC_PER_SEC 1000000000
+#endif
+
 #ifndef SWIFT_PROXY_SERVER_PORT
 #define SWIFT_PROXY_SERVER_PORT 8080
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 5
+#define MAX_CONN 1024
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
 #define SOCKET_TIMEOUT_SEC 1
+#endif
+
+#ifndef BURST_COUNT
+#define BURST_COUNT (MAX_CONN + (MAX_CONN >> 1))
+#endif
+
+#ifndef GATE_OPEN_INTERVAL
+#define GATE_OPEN_INTERVAL 1
+#endif
+
+#ifndef DEFAULT_KEY_OR_VALUE
+#define DEFAULT_KEY_OR_VALUE 0
 #endif
 
 #ifndef BPF_FUNC
@@ -58,7 +74,6 @@
 #endif
 
 
-
 /* ebpf helper function
  * The generated function is used for parameter verification
  * by the eBPF verifier
@@ -67,15 +82,17 @@ static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
 struct flow_key
 {
-//	__u32 server_ip4;
 	__u32 client_ip4;
-	__u32 client_port;
-//	__u32 server_port;
-	
-};
+	__u32 client_port;	
+}__attribute__((__packed__));
 
 struct connection {
 	__u32 count;
+};
+
+struct burst_per_open {
+	__u32 count;
+	__u32 last_updated; // sec as unit, ~136 yr. as upper bound
 };
 
 struct bpf_map_def SEC("maps") existed_connection_map = {
@@ -84,6 +101,14 @@ struct bpf_map_def SEC("maps") existed_connection_map = {
 	.value_size  = sizeof(struct connection),
 	.max_entries = 1,
 };
+
+struct bpf_map_def SEC("maps") burst_connection_map = {
+	.type        = BPF_MAP_TYPE_ARRAY,
+	.key_size    = sizeof(__u32),
+	.value_size  = sizeof(struct burst_per_open),
+	.max_entries = 1,
+};
+
 
 struct bpf_map_def __section("maps") reservation_ops_map = {
 	.type           = BPF_MAP_TYPE_HASH,

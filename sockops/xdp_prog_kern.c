@@ -12,10 +12,6 @@
 #include <bpf/bpf_endian.h>
 #include "bpf_sockops.h"
 
-#ifndef lock_xadd
-#define lock_xadd(ptr, val)	((void) __sync_fetch_and_add(ptr, val))
-#endif
-
 struct hdr_cursor {
 	void *pos;
 };
@@ -137,39 +133,83 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 // }
 
 static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
+static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-//	reservation->server_ip4 = iphdr->daddr;
-//	reservation->server_port = tcphdr->dest;
-	reservation->client_ip4 = iphdr->saddr;
-	reservation->client_port = tcphdr->source;
-	
-
-	__u32 key = 0;
+	__u32 key = DEFAULT_KEY_OR_VALUE;
 	// __u64 start = bpf_ktime_get_ns();
 	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
 	// __u64 end = bpf_ktime_get_ns();
 	// printk("Lookup time: %llu\n", end-start);
 
-	// Allow tcp fin flag pass, avoid wierd connection state
+	// Not found an initial entry, create one...
 	if(!flows) {
-		printk("XDP: Not found the existed connection map\n");
+		struct connection initial_flow;
+		initial_flow.count = 0;
+		char v = DEFAULT_KEY_OR_VALUE;
+		if(bpf_map_update_elem(&existed_connection_map, &initial_flow, &v, BPF_NOEXIST) < 0)
+			printk("XDP: Not found the existed connection map, and initialize error!\n");
 		return XDP_PASS;
 	}
+
+	// Allow tcp fin flag pass, avoid wierd connection state
 	if(tcphdr->fin == 1) {
 		printk("XDP: Let TCP fin packet pass\n");
 		return XDP_PASS;
 	}
+
+	reservation->client_ip4 = iphdr->saddr;
+	reservation->client_port = tcphdr->source;
 
 	if(flows->count >= MAX_CONN) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
 			return XDP_PASS;
 		}
-		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
+//		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
 		return XDP_DROP;
 	}
-	
+
+	// packet with tcp syn flag
+	 if(tcphdr->syn == 1 && tcphdr->ack == 0) {
+		struct burst_per_open *burst_count = bpf_map_lookup_elem(&burst_connection_map, &key);
+		if(!burst_count) {
+			struct burst_per_open initial_burst;
+			initial_burst.count = 1;
+			initial_burst.last_updated = getBootTimeSec();
+			if(bpf_map_update_elem(&burst_connection_map, &key, &initial_burst, BPF_NOEXIST) < 0)
+				return XDP_DROP;
+			return XDP_PASS;
+		}
+		
+
+		if(burst_count->count > BURST_COUNT) {
+			// NanoSec to Sec
+			__u32 cur_time = getBootTimeSec();
+		//	printk("Diff: %d\n", cur_time - burst_count->last_updated);
+			// Gate not open
+			if((cur_time - burst_count->last_updated) < GATE_OPEN_INTERVAL) {
+				return XDP_DROP;
+			}
+		//	printk("Gate open %d %d!!\n", (cur_time - burst_count->last_updated), GATE_OPEN_INTERVAL);
+			(void) __sync_add_and_fetch(&burst_count->count, -(burst_count->count));
+		}
+
+		
+		(void) __sync_add_and_fetch(&burst_count->count, 1);
+		if(burst_count->count > BURST_COUNT) {
+			printk("Over burst count %d\n", BURST_COUNT);
+			return  XDP_DROP;
+		}
+		// For Safety, use atomic operation
+		(void) __sync_add_and_fetch(&burst_count->last_updated, getBootTimeSec() - burst_count->last_updated);
+
+	 }
+
 	printk("current flow is acceptable, current count: %d\n", flows->count);
 
 
