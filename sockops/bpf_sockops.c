@@ -1,7 +1,6 @@
 #include <linux/bpf.h>
 #include <asm-generic/socket.h>
 #include <netinet/tcp.h>
-
 #include "bpf_sockops.h"
 
 /*
@@ -10,8 +9,6 @@
 static inline
 void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 {
- //   flow->server_ip4 = ops->local_ip4;
- //   flow->server_port = (bpf_htonl(ops->local_port) >> 16);
 	flow->client_ip4 = ops->remote_ip4;
 	flow->client_port = FORCE_READ(ops->remote_port) >> 16;
 }
@@ -26,7 +23,8 @@ void delete_sock_from_maps(struct flow_key *flow) {
         return;
     }
  //   __u64 start = bpf_ktime_get_ns();
-    if(bpf_map_delete_elem(&reservation_ops_map, flow) < 0) {
+    int ret = bpf_map_delete_elem(&reservation_ops_map, flow);
+    if(ret < 0) {
 //        printk("Delete time: %llu\n", bpf_ktime_get_ns()-start);
         printk("Error: delete flow from map\n");
         return;
@@ -69,22 +67,17 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
             bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
-
+            // struct linger ling;
+            // ling.l_onoff = 1;
+            // ling.l_linger = 0;
+            //   rv = bpf_setsockopt(skops, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
         //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
         //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
         //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
             break;
-        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        //     bpf_sock_ops_ipv4(skops, &flow);
-        //     bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
-
-        //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-        //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
-        //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof timeout);
-            break;
         case BPF_SOCK_OPS_STATE_CB:
-         //   printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
-            if(skops->args[1] == BPF_TCP_CLOSE) {
+          // printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
+            if(skops->args[0] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE) {
                 struct flow_key flow = {};
                 extract_key4_from_ops(skops, &flow);
                 printk("A socket being closed, try to delete flow from existed connection\n");

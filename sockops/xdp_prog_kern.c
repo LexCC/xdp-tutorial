@@ -153,12 +153,15 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		char v = DEFAULT_KEY_OR_VALUE;
 		if(bpf_map_update_elem(&existed_connection_map, &initial_flow, &v, BPF_NOEXIST) < 0)
 			printk("XDP: Not found the existed connection map, and initialize error!\n");
-		return XDP_PASS;
+		return XDP_DROP;
 	}
 
 	// Allow tcp fin flag pass, avoid wierd connection state
 	if(tcphdr->fin == 1) {
 		printk("XDP: Let TCP fin packet pass\n");
+		return XDP_PASS;
+	}
+	if(tcphdr->rst == 1) {
 		return XDP_PASS;
 	}
 
@@ -203,11 +206,10 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		(void) __sync_add_and_fetch(&burst_count->count, 1);
 		if(burst_count->count > BURST_COUNT) {
 			printk("Over burst count %d\n", BURST_COUNT);
-			return  XDP_DROP;
+			return XDP_DROP;
 		}
 		// For Safety, use atomic operation
 		(void) __sync_add_and_fetch(&burst_count->last_updated, getBootTimeSec() - burst_count->last_updated);
-
 	 }
 
 	printk("current flow is acceptable, current count: %d\n", flows->count);

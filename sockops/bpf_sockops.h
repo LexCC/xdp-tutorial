@@ -41,7 +41,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 1024
+#define MAX_CONN 10
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -96,14 +96,14 @@ struct burst_per_open {
 };
 
 struct bpf_map_def SEC("maps") existed_connection_map = {
-	.type        = BPF_MAP_TYPE_ARRAY,
+	.type        = BPF_MAP_TYPE_HASH,
 	.key_size    = sizeof(__u32),
 	.value_size  = sizeof(struct connection),
 	.max_entries = 1,
 };
 
 struct bpf_map_def SEC("maps") burst_connection_map = {
-	.type        = BPF_MAP_TYPE_ARRAY,
+	.type        = BPF_MAP_TYPE_HASH,
 	.key_size    = sizeof(__u32),
 	.value_size  = sizeof(struct burst_per_open),
 	.max_entries = 1,
