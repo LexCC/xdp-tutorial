@@ -17,12 +17,15 @@ static inline
 void delete_sock_from_maps(struct flow_key *flow) {
     __u32 key = DEFAULT_KEY_OR_VALUE;
     struct connection *curr_connection;
-    curr_connection = bpf_map_lookup_elem(&existed_connection_map, &key);
+    curr_connection = bpf_map_lookup_elem(&existed_counter_map, &key);
     if(!curr_connection) {
         printk("Socket: Not found the existed connection map\n");
         return;
     }
  //   __u64 start = bpf_ktime_get_ns();
+    // struct reservation *reserv = bpf_map_lookup_elem(&reservation_ops_map, flow);
+    // if(reserv)
+    //     printk("Timestamp: %ld\n", reserv->last_updated);
     int ret = bpf_map_delete_elem(&reservation_ops_map, flow);
     if(ret < 0) {
 //        printk("Delete time: %llu\n", bpf_ktime_get_ns()-start);
@@ -31,7 +34,6 @@ void delete_sock_from_maps(struct flow_key *flow) {
     }
 //    printk("Delete time: %llu\n", bpf_ktime_get_ns()-start);
     (void) __sync_add_and_fetch(&curr_connection->count, -1);
-    
     printk("Success: delete flow from map\n");
 }
 
@@ -71,9 +73,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
             // ling.l_onoff = 1;
             // ling.l_linger = 0;
             //   rv = bpf_setsockopt(skops, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
-        //    rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-        //    rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        //    rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+           rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
             break;
         case BPF_SOCK_OPS_STATE_CB:
           // printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
@@ -88,7 +90,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
             break;
     }
     skops->reply = rv;
-    return 0;
+    return 1;
 }
 
 char ____license[] __section("license") = "GPL";

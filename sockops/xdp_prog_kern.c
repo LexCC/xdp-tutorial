@@ -133,16 +133,11 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 // }
 
 static __always_inline
-__u32 getBootTimeSec() {
-	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
-}
-
-static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
 	__u32 key = DEFAULT_KEY_OR_VALUE;
 	// __u64 start = bpf_ktime_get_ns();
-	struct connection *flows = bpf_map_lookup_elem(&existed_connection_map, &key);
+	struct connection *flows = bpf_map_lookup_elem(&existed_counter_map, &key);
 	// __u64 end = bpf_ktime_get_ns();
 	// printk("Lookup time: %llu\n", end-start);
 
@@ -151,7 +146,7 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		struct connection initial_flow;
 		initial_flow.count = 0;
 		char v = DEFAULT_KEY_OR_VALUE;
-		if(bpf_map_update_elem(&existed_connection_map, &initial_flow, &v, BPF_NOEXIST) < 0)
+		if(bpf_map_update_elem(&existed_counter_map, &initial_flow, &v, BPF_NOEXIST) < 0)
 			printk("XDP: Not found the existed connection map, and initialize error!\n");
 		return XDP_DROP;
 	}

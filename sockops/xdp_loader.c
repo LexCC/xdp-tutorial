@@ -105,10 +105,28 @@ int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, struct config *cfg)
 	return 0;
 }
 
+int find_map_fd(struct bpf_object *bpf_obj, const char *mapname)
+{
+	struct bpf_map *map;
+	int map_fd = -1;
+
+	/* Lesson#3: bpf_object to bpf_map */
+	map = bpf_object__find_map_by_name(bpf_obj, mapname);
+        if (!map) {
+		fprintf(stderr, "ERR: cannot find map by name: %s\n", mapname);
+		goto out;
+	}
+
+	map_fd = bpf_map__fd(map);
+ out:
+	return map_fd;
+}
+
 int main(int argc, char **argv)
 {
 	struct bpf_object *bpf_obj;
 	int err, len;
+	int map_fd;
 
 	struct config cfg = {
 		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
@@ -160,6 +178,14 @@ int main(int argc, char **argv)
 			return err;
 		}
 	}
+
+	// map_fd = find_map_fd(bpf_obj, "existed_counter_map");
+	// if (map_fd < 0) {
+	// 	return EXIT_FAIL_BPF;
+	// } else {
+	// 	printf("Map FD: %d\n", map_fd);
+	// }
+
 
 
 	return EXIT_OK;

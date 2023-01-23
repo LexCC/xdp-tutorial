@@ -41,7 +41,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 10
+#define MAX_CONN 1024
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -73,6 +73,11 @@
     })
 #endif
 
+static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
 
 /* ebpf helper function
  * The generated function is used for parameter verification
@@ -95,7 +100,11 @@ struct burst_per_open {
 	__u32 last_updated; // sec as unit, ~136 yr. as upper bound
 };
 
-struct bpf_map_def SEC("maps") existed_connection_map = {
+struct reservation {
+	__u32 last_updated;
+};
+
+struct bpf_map_def SEC("maps") existed_counter_map = {
 	.type        = BPF_MAP_TYPE_HASH,
 	.key_size    = sizeof(__u32),
 	.value_size  = sizeof(struct connection),
@@ -113,7 +122,7 @@ struct bpf_map_def SEC("maps") burst_connection_map = {
 struct bpf_map_def __section("maps") reservation_ops_map = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.key_size       = sizeof(struct flow_key),
-	.value_size     = sizeof(char),
+	.value_size     = sizeof(struct reservation),
 	.max_entries    = MAX_CONN,
 	.map_flags      = 0,
 };
