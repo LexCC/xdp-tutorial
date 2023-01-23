@@ -13,8 +13,21 @@ void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 	flow->client_port = FORCE_READ(ops->remote_port) >> 16;
 }
 
+// static void print_ip(unsigned int ip)
+// {
+//     unsigned char bytes[4];
+//     bytes[0] = ip & 0xFF;
+//     bytes[1] = (ip >> 8) & 0xFF;
+//     bytes[2] = (ip >> 16) & 0xFF;
+//     bytes[3] = (ip >> 24) & 0xFF;   
+
+// 	printk("%d.%d.%d\n", bytes[2], bytes[1], bytes[0]);
+// }
+
 static inline
 void delete_sock_from_maps(struct flow_key *flow) {
+	if(!flow)
+		return;
     __u32 key = DEFAULT_KEY_OR_VALUE;
     struct connection *curr_connection;
     curr_connection = bpf_map_lookup_elem(&existed_counter_map, &key);
@@ -36,17 +49,6 @@ void delete_sock_from_maps(struct flow_key *flow) {
     (void) __sync_add_and_fetch(&curr_connection->count, -1);
     printk("Success: delete flow from map\n");
 }
-
-// static void print_ip(unsigned int ip)
-// {
-//     unsigned char bytes[4];
-//     bytes[0] = ip & 0xFF;
-//     bytes[1] = (ip >> 8) & 0xFF;
-//     bytes[2] = (ip >> 16) & 0xFF;
-//     bytes[3] = (ip >> 24) & 0xFF;   
-
-// 	printk("%d.%d.%d\n", bytes[2], bytes[1], bytes[0]);
-// }
 
 __section("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)

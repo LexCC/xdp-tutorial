@@ -157,6 +157,9 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		return XDP_PASS;
 	}
 	if(tcphdr->rst == 1) {
+		if(bpf_map_delete_elem(&reservation_ops_map, reservation) >= 0) {
+			(void) __sync_add_and_fetch(&flows->count, -1);
+		}
 		return XDP_PASS;
 	}
 

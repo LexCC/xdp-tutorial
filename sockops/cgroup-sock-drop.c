@@ -24,14 +24,11 @@ void extract_key4_from_skb(unsigned int client_ip, unsigned short client_port, s
 static inline
 int bpf_sock_ipv4(struct flow_key *flow)
 { 
+	if(!flow)
+		return SK_DROP;
     int ret = -1;
     __u32 key = DEFAULT_KEY_OR_VALUE;
     struct connection *curr_connection;
-    
-	struct reservation *f = bpf_map_lookup_elem(&reservation_ops_map, flow);
-	if(f) {
-		return SK_PASS;
-	}
 	curr_connection = bpf_map_lookup_elem(&existed_counter_map, &key);
 	if(!curr_connection) {
 		struct connection initial_conn;
@@ -41,6 +38,18 @@ int bpf_sock_ipv4(struct flow_key *flow)
 			printk("Socket: Not found the existed connection map, pass for system stability\n");
 		return SK_DROP;
 	}
+    
+	struct reservation *f = bpf_map_lookup_elem(&reservation_ops_map, flow);
+	if(f) {
+		(void) __sync_add_and_fetch(&f->syn_ack_retry, 1);
+		if(f->syn_ack_retry > TCP_MAX_SYN_ACK_RETRY) {
+			bpf_map_delete_elem(&reservation_ops_map, flow);
+			(void) __sync_add_and_fetch(&curr_connection->count, -1);
+			return SK_DROP;
+		}
+		return SK_PASS;
+	}
+	
 	if(curr_connection->count >= MAX_CONN) {
 		return SK_DROP;
 	}
@@ -48,6 +57,7 @@ int bpf_sock_ipv4(struct flow_key *flow)
 	if(!f) {
 		struct reservation reserv;
 		reserv.last_updated = getBootTimeSec();
+		reserv.syn_ack_retry = 0;
 		ret = bpf_map_update_elem(&reservation_ops_map, flow, &reserv, BPF_NOEXIST);
 	}
 //	__u64 end = bpf_ktime_get_ns();

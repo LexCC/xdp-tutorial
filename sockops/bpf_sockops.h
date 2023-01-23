@@ -41,11 +41,15 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 1024
+#define MAX_CONN 40
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
 #define SOCKET_TIMEOUT_SEC 1
+#endif
+
+#ifndef TCP_MAX_SYN_ACK_RETRY
+#define TCP_MAX_SYN_ACK_RETRY 3
 #endif
 
 #ifndef BURST_COUNT
@@ -73,12 +77,6 @@
     })
 #endif
 
-static __always_inline
-__u32 getBootTimeSec() {
-	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
-}
-
-
 /* ebpf helper function
  * The generated function is used for parameter verification
  * by the eBPF verifier
@@ -102,6 +100,7 @@ struct burst_per_open {
 
 struct reservation {
 	__u32 last_updated;
+	__u32 syn_ack_retry;
 };
 
 struct bpf_map_def SEC("maps") existed_counter_map = {
@@ -127,4 +126,8 @@ struct bpf_map_def __section("maps") reservation_ops_map = {
 	.map_flags      = 0,
 };
 
+static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
 
