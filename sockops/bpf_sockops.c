@@ -50,6 +50,16 @@ void delete_sock_from_maps(struct flow_key *flow) {
     printk("Success: delete flow from map\n");
 }
 
+static inline
+void update_ack_timestamp(struct flow_key *flow) {
+    struct reservation value;
+    value.last_updated = 0;
+    value.syn_ack_retry = 0;
+    if(bpf_map_update_elem(&reservation_ops_map, flow, &value, BPF_EXIST) < 0) {
+        printk("Can't update ack timestamp\n");
+    }
+    return;
+}
 __section("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)
 {
@@ -78,6 +88,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
            rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
            rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
            rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+           struct flow_key flow = {};
+           extract_key4_from_ops(skops, &flow);
+           update_ack_timestamp(&flow);
             break;
         case BPF_SOCK_OPS_STATE_CB:
           // printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);

@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 {
 	struct bpf_object *bpf_obj;
 	int err, len;
-	int map_fd;
+	// int map_fd;
 
 	struct config cfg = {
 		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
