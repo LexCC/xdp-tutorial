@@ -125,6 +125,10 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 	if(ip) {
 		if (data + sizeof(struct iphdr) > data_end) { return 0; }
 		 struct iphdr *ip = data;
+		 __u32 local_IP = bpf_htonl(0b01111111000000000000000000000001); // 127.0.0.1
+		 if(ip->daddr == local_IP) {
+			return SK_PASS;
+		 }
 		 
 		 __u8 tcp = ip->protocol == IPPROTO_TCP;
 		 if(tcp) {
