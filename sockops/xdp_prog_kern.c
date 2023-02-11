@@ -176,7 +176,7 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	}
 
 	// packet with tcp syn flag
-	 if(tcphdr->syn == 1 && tcphdr->ack == 0) {
+	 if(ENABLE_THROTTLE_SYN == 1 && (tcphdr->syn == 1 && tcphdr->ack == 0)) {
 		struct burst_per_open *burst_count = bpf_map_lookup_elem(&burst_connection_map, &key);
 		if(!burst_count) {
 			struct burst_per_open initial_burst;
