@@ -85,9 +85,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
             // ling.l_onoff = 1;
             // ling.l_linger = 0;
             //   rv = bpf_setsockopt(skops, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
-           rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-           rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-           rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
+          // rv = bpf_setsockopt(skops, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+          // rv += bpf_setsockopt(skops, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+          // rv += bpf_setsockopt(skops, SOL_TCP, TCP_USER_TIMEOUT, &timeout, sizeof(timeout));
            struct flow_key flow = {};
            extract_key4_from_ops(skops, &flow);
            update_ack_timestamp(&flow);
