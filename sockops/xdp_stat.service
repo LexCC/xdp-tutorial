@@ -1,0 +1,13 @@
+[Unit]
+Description=XDP expired socket collector
+
+[Service]
+Type=simple
+ExecStart=/opt/xdp_stats
+Restart=always
+StandardOutput=syslog+console
+StandardError=syslog+console
+User=root
+
+[Install]
+WantedBy=multi-user.target
