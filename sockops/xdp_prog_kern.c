@@ -135,6 +135,10 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
+	__u32 *is_lbip = bpf_map_lookup_elem(&lb_ips_map, &iphdr->saddr);
+	if(!is_lbip) {
+		return XDP_PASS;
+	}
 	__u32 key = DEFAULT_KEY_OR_VALUE;
 	// __u64 start = bpf_ktime_get_ns();
 	struct connection *flows = bpf_map_lookup_elem(&existed_counter_map, &key);

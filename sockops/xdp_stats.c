@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include <bpf/bpf.h>
+#include <bpf/bpf_endian.h>
 
 #include "../common/common_params.h"
 #include "../common/common_user_bpf_xdp.h"
@@ -118,6 +119,39 @@ void find_expired_connection(int reservation_ops_map_fd, int existed_counter_map
 char *pin_basedir =  "/sys/fs/bpf";
 char *reservation_mapfile = "reservation_ops_map";
 char *connection_mapfile = "existed_counter_map";
+char *lbips_mapfile = "lb_ips_map";
+
+void configure_lb_ips()
+{
+	struct bpf_map_info map_expect = { 0 };
+	struct bpf_map_info lbips_map_info = { 0 };
+	int lbips_map_fd, err;
+	lbips_map_fd = get_map_fd_id(pin_basedir, lbips_mapfile, &lbips_map_info);
+	if (lbips_map_fd < 0) {
+		return;
+	}
+	err = check_map_fd_info(&lbips_map_info, &map_expect);
+	if (err) {
+		fprintf(stderr, "ERR: map via FD not compatible\n");
+		close(lbips_map_fd);
+		return;
+	}
+
+	char default_value = 0;
+	const int IPS = 1;
+	__u32 lb_ips_list[1] = {
+		0b00001010001101001010001110010010
+	};
+	int i;
+	for(i=0; i<IPS; i++) {
+		__u32 key = bpf_htonl(lb_ips_list[i]);
+		if(bpf_map_update_elem(lbips_map_fd, &key, &default_value, BPF_NOEXIST) < 0) {
+			printf("Configure lb ips map error\n");
+			break;
+		}
+	}
+	close(lbips_map_fd);
+}
 
 int main(int argc, char **argv)
 {
@@ -127,6 +161,8 @@ int main(int argc, char **argv)
 	int reservation_map_fd, connection_map_fd;
 	int err;
 	int show_map_info_once = 1;
+
+	configure_lb_ips();
 	
 	for(;;) {
 		reservation_map_fd = get_map_fd_id(pin_basedir, reservation_mapfile, &reservation_map_info);

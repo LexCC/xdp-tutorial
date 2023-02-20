@@ -41,7 +41,7 @@
 #endif
 
 #ifndef SWIFT_PROXY_SERVER_PORT
-#define SWIFT_PROXY_SERVER_PORT 80
+#define SWIFT_PROXY_SERVER_PORT 443
 #endif
 
 #ifndef MAX_CONN
@@ -137,6 +137,14 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } reservation_ops_map SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 100);
+	__type(key, sizeof(__u32));
+	__type(value, sizeof(char));
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} lb_ips_map SEC(".maps");
+
 #else
 
 struct bpf_map_def SEC("maps") existed_counter_map = {
@@ -158,6 +166,14 @@ struct bpf_map_def __section("maps") reservation_ops_map = {
 	.key_size       = sizeof(struct flow_key),
 	.value_size     = sizeof(struct reservation),
 	.max_entries    = MAX_CONN,
+	.map_flags      = 0,
+};
+
+struct bpf_map_def __section("maps") lb_ips_map = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.key_size       = sizeof(__u32),
+	.value_size     = sizeof(char),
+	.max_entries    = 100,
 	.map_flags      = 0,
 };
 #endif
