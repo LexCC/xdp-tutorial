@@ -153,6 +153,7 @@ void configure_lb_ips()
 	close(lbips_map_fd);
 }
 
+/* TODO: Consider bpf_cgroup_inet_sock_release hook, instead of searching unhealthy socket periodically */
 int main(int argc, char **argv)
 {
 	struct bpf_map_info map_expect = { 0 };
