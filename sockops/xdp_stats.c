@@ -165,12 +165,7 @@ void configure_lb_ips()
 	// Append new LB IP to map
 	for(i=0; i<total_lb_ips; i++) {
 		__u32 key = lb_ips_list[i];
-		res = bpf_map_lookup_elem(lbips_map_fd, &key, value);
-		if(res < 0 && !value) {
-			if(bpf_map_update_elem(lbips_map_fd, &key, &default_value, BPF_NOEXIST) < 0) {
-				printf("Append new LB IP error\n");
-			}
-		}
+		bpf_map_update_elem(lbips_map_fd, &key, &default_value, BPF_NOEXIST);
 	}
 
 	// Remove LB IP from map which is not existed in configuration file
