@@ -137,19 +137,67 @@ void configure_lb_ips()
 		return;
 	}
 
-	char default_value = 0;
-	const int IPS = 1;
-	__u32 lb_ips_list[1] = {
-		0b00001010001101001010001110010010
-	};
+	FILE *lb_ips_cfg;
+	size_t len = 0;
+    ssize_t read;
+	char *ip = NULL;
+	lb_ips_cfg = fopen("./lb_ips.cfg", "r");
+	if(lb_ips_cfg == NULL) {
+		return;
+	}
 	int i;
-	for(i=0; i<IPS; i++) {
-		__u32 key = bpf_htonl(lb_ips_list[i]);
-		if(bpf_map_update_elem(lbips_map_fd, &key, &default_value, BPF_NOEXIST) < 0) {
-			printf("Configure lb ips map error\n");
-			break;
+	const int MAX_LB_IPS = 1024;
+	int total_lb_ips = 0;
+	__u32 lb_ips_list[MAX_LB_IPS];
+	for(i=0; i<MAX_LB_IPS; i++) { lb_ips_list[i] = 0; }
+
+	while((read = getline(&ip, &len, lb_ips_cfg)) != -1) {
+		int a,b,c,d;
+		sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d);
+		__u32 ip_2_bin = (a << 24) + (b << 16) + (c << 8) + d;
+		lb_ips_list[total_lb_ips++] = bpf_htonl(ip_2_bin);
+	}
+	
+	
+	int res;
+	char* value;
+	char default_value = 0;
+	// Append new LB IP to map
+	for(i=0; i<total_lb_ips; i++) {
+		__u32 key = lb_ips_list[i];
+		res = bpf_map_lookup_elem(lbips_map_fd, &key, value);
+		if(res < 0 && !value) {
+			if(bpf_map_update_elem(lbips_map_fd, &key, &default_value, BPF_NOEXIST) < 0) {
+				printf("Append new LB IP error\n");
+			}
 		}
 	}
+
+	// Remove LB IP from map which is not existed in configuration file
+	__u32 key = 0, next_key;
+	while(bpf_map_get_next_key(lbips_map_fd, &key, &next_key) == 0) {
+		res = bpf_map_lookup_elem(lbips_map_fd, &next_key, &value);
+		key=next_key;
+		if(res < 0) {
+			continue;
+		}
+		int found = 0;
+		for(i=0; i<total_lb_ips; i++) {
+			if(next_key == lb_ips_list[i]) {
+				found = 1;
+				break;
+			}
+		}
+		if(found == 0) {
+			if(bpf_map_delete_elem(lbips_map_fd, &next_key) < 0) {
+				printf("Remove old LB IP error\n");
+			}
+		}
+	}
+
+	fclose(lb_ips_cfg);
+	if(ip)
+		free(ip);
 	close(lbips_map_fd);
 }
 
