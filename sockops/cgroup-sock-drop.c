@@ -145,7 +145,7 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 			if(tcp->source != bpf_htons(SWIFT_PROXY_SERVER_PORT)) {
 				return SK_PASS;
 			}
-			// TODO: if state == BPF_TCP_LAST_ACK, but socket not exists in map, bpf_sk_release(sk)
+			// TODO: if state == Established, but socket not exists in map, bpf_sk_release(sk)
 			if(skb->sk) {
 				if(ignored_tcp(skb->sk->state)) {
 					return SK_PASS;
