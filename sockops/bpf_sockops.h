@@ -45,7 +45,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 480
+#define MAX_CONN 320
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -86,6 +86,8 @@
  * by the eBPF verifier
  */
 static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
+static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops,
+			void *map, void *key, __u64 flags);
 
 struct flow_key
 {
@@ -106,6 +108,17 @@ struct reservation {
 	__u32 last_updated;
 	__u32 syn_ack_retry;
 };
+
+struct sock_key {
+	__u32 sip4;
+	__u32 dip4;
+	__u8  family;
+	__u8  pad1;
+	__u16 pad2;
+	__u32 pad3;
+	__u32 sport;
+	__u32 dport;
+} __attribute__((packed));
 
 #ifndef COMPILE_BTF
 #define COMPILE_BTF 1
@@ -145,6 +158,14 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } lb_ips_map SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 65535);
+	__type(key, sizeof(struct sock_key));
+	__type(value, sizeof(int));
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} hitch_to_proxy_map SEC(".maps");
+
 #else
 
 struct bpf_map_def SEC("maps") existed_counter_map = {
@@ -174,6 +195,14 @@ struct bpf_map_def __section("maps") lb_ips_map = {
 	.key_size       = sizeof(__u32),
 	.value_size     = sizeof(char),
 	.max_entries    = 100,
+	.map_flags      = 0,
+};
+
+struct bpf_map_def __section("maps") hitch_to_proxy_map = {
+	.type           = BPF_MAP_TYPE_SOCKHASH,
+	.key_size       = sizeof(struct sock_key),
+	.value_size     = sizeof(int),
+	.max_entries    = 65535,
 	.map_flags      = 0,
 };
 #endif

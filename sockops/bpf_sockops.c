@@ -25,6 +25,37 @@ void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 // }
 
 static inline
+void extract_hitch_to_proxy_key(struct bpf_sock_ops *ops, struct sock_key *key)
+{
+    // keep ip and port in network byte order
+    key->dip4 = ops->remote_ip4;
+    key->sip4 = ops->local_ip4;
+    key->family = 1;
+
+    // local_port is in host byte order, and
+    // remote_port is in network byte order
+    key->sport = (bpf_htonl(ops->local_port) >> 16);
+    key->dport = FORCE_READ(ops->remote_port) >> 16;
+}
+
+static inline
+void record_if_hitch_to_proxy(struct bpf_sock_ops *skops)
+{
+    struct sock_key key = {};
+    int ret;
+
+    extract_hitch_to_proxy_key(skops, &key);
+
+    ret = sock_hash_update(skops, &hitch_to_proxy_map, &key, BPF_NOEXIST);
+    if (ret != 0) {
+        printk("sock_hash_update() failed, ret: %d\n", ret);
+    }
+
+    printk("sockmap: op %d, port %d --> %d\n",
+            skops->op, skops->local_port, bpf_ntohl(skops->remote_port));
+}
+
+static inline
 void delete_sock_from_maps(struct flow_key *flow) {
 	if(!flow)
 		return;
@@ -60,6 +91,30 @@ void update_ack_timestamp(struct flow_key *flow) {
     }
     return;
 }
+
+/* 0: false, 1: true*/
+static inline
+int is_local_hitch_to_proxy(struct bpf_sock_ops *skops) {
+    if(bpf_ntohl(skops->remote_port) != 8080) {
+        return 0;
+    }
+
+    __u32 localhost_ip = bpf_htonl(0b01111111000000000000000000000001);
+    if(skops->remote_ip4 != localhost_ip || skops->local_ip4 != localhost_ip) {
+        return 0;
+    }
+    printk("Is hitch to proxy\n");
+    return 1;
+} 
+
+/* 0: false, 1: true*/
+static inline
+int is_request_proxy_server(struct bpf_sock_ops *skops) {
+    if((bpf_ntohl((bpf_htonl(skops->local_port) >> 16)) >> 16) != SWIFT_PROXY_SERVER_PORT) {
+        return 0;
+    }
+    return 1;
+}
 __section("sockops")
 int bpf_sockmap(struct bpf_sock_ops *skops)
 {
@@ -70,7 +125,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     
     // flow->sip4:flow->sport == server IP: server port
     // flow->dip4:flow->dport == client IP: client port
-    if((bpf_ntohl((bpf_htonl(skops->local_port) >> 16)) >> 16) != SWIFT_PROXY_SERVER_PORT) {
+    if(is_local_hitch_to_proxy(skops) == 0 && is_request_proxy_server(skops) == 0) {
         return 0;
     }
 
@@ -91,6 +146,10 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
            struct flow_key flow = {};
            extract_key4_from_ops(skops, &flow);
            update_ack_timestamp(&flow);
+            break;
+        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+            printk("An active connection!!!\n");
+            record_if_hitch_to_proxy(skops);
             break;
         case BPF_SOCK_OPS_STATE_CB:
           // printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);

@@ -11,4 +11,5 @@ sudo bpftool cgroup detach /sys/fs/cgroup/unified/ egress pinned /sys/fs/bpf/cgr
 sudo rm /sys/fs/bpf/cgroup-sock-drop
 sudo rm /sys/fs/bpf/burst_connection_map
 sudo rm /sys/fs/bpf/lb_ips_map
+sudo rm /sys/fs/bpf/hitch_to_proxy_map
 
