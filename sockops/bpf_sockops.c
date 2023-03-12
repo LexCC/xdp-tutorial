@@ -49,6 +49,7 @@ void record_if_hitch_to_proxy(struct bpf_sock_ops *skops)
     ret = sock_hash_update(skops, &hitch_to_proxy_map, &key, BPF_NOEXIST);
     if (ret != 0) {
         printk("sock_hash_update() failed, ret: %d\n", ret);
+        return;
     }
 
     printk("sockmap: op %d, port %d --> %d\n",
@@ -95,14 +96,18 @@ void update_ack_timestamp(struct flow_key *flow) {
 /* 0: false, 1: true*/
 static inline
 int is_local_hitch_to_proxy(struct bpf_sock_ops *skops) {
-    if(bpf_ntohl(skops->remote_port) != 8080) {
-        return 0;
-    }
-
     __u32 localhost_ip = bpf_htonl(0b01111111000000000000000000000001);
+    // Not intra host service request
     if(skops->remote_ip4 != localhost_ip || skops->local_ip4 != localhost_ip) {
         return 0;
     }
+    int remote_port = bpf_ntohl(skops->remote_port);
+    int local_port = skops->local_port;
+    // check hitch <-> proxy
+    if((remote_port != 443 && local_port != 8080) && (remote_port != 8080 && local_port != 443)) {
+        return 0;
+    }
+    
     printk("Is hitch to proxy\n");
     return 1;
 } 
@@ -122,12 +127,6 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     if(skops->family != 2) {
         return 0;
     }
-    
-    // flow->sip4:flow->sport == server IP: server port
-    // flow->dip4:flow->dport == client IP: client port
-    if(is_local_hitch_to_proxy(skops) == 0 && is_request_proxy_server(skops) == 0) {
-        return 0;
-    }
 
     int rv = skops->reply;
     struct timeval timeout;      
@@ -135,6 +134,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     timeout.tv_usec = 0;
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+            if(is_request_proxy_server(skops) == 0) {
+                return 0;
+            }
             bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
             // struct linger ling;
             // ling.l_onoff = 1;
@@ -148,6 +150,9 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
            update_ack_timestamp(&flow);
             break;
         case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+            if(is_local_hitch_to_proxy(skops) == 0) {
+                return 0;
+            }
             printk("An active connection!!!\n");
             record_if_hitch_to_proxy(skops);
             break;
@@ -164,7 +169,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
             break;
     }
     skops->reply = rv;
-    return 1;
+    return 0;
 }
 
 char ____license[] __section("license") = "GPL";

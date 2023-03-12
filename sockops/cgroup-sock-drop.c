@@ -10,6 +10,12 @@
 #define SK_DROP 0
 #define SK_PASS 1
 
+
+static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
 static inline
 void extract_key4_from_skb(unsigned int client_ip, unsigned short client_port, struct flow_key *flow)
 {

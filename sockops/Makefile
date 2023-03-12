@@ -5,6 +5,7 @@ USER_TARGETS := xdp_loader
 USER_TARGETS += xdp_stats
 XDP_TARGETS  += bpf_sockops
 XDP_TARGETS  += cgroup-sock-drop
+XDP_TARGETS  += hitch_to_proxy
 
 LIBBPF_DIR = ../libbpf/src/
 COMMON_DIR = ../common/

@@ -45,7 +45,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 320
+#define MAX_CONN 1000
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -88,6 +88,8 @@
 static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops,
 			void *map, void *key, __u64 flags);
+static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md,
+			void *map, void *key, __u64 flag);
 
 struct flow_key
 {
@@ -206,9 +208,4 @@ struct bpf_map_def __section("maps") hitch_to_proxy_map = {
 	.map_flags      = 0,
 };
 #endif
-
-static __always_inline
-__u32 getBootTimeSec() {
-	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
-}
 

@@ -133,6 +133,11 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 // }
 
 static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
+static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
 	__u32 *is_lbip = bpf_map_lookup_elem(&lb_ips_map, &iphdr->saddr);
