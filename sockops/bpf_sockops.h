@@ -32,8 +32,24 @@
 #define FORCE_READ(X) (*(volatile typeof(X)*)&X)
 #endif
 
+#ifndef MAX_CPU_CORES
+#define MAX_CPU_CORES 49
+#endif
+
+#ifndef SOCKET_REDIRECT_MAP_ENTRIES
+#define SOCKET_REDIRECT_MAP_ENTRIES 4000
+#endif
+
+#ifndef COMPILE_BTF
+#define COMPILE_BTF 1
+#endif
+
 #ifndef NANOSEC_PER_SEC 
 #define NANOSEC_PER_SEC 1000000000
+#endif
+
+#ifndef NANOSEC_PER_MILLISEC 
+#define NANOSEC_PER_MILLISEC (NANOSEC_PER_SEC/1000)
 #endif
 
 #ifndef ENABLE_THROTTLE_SYN
@@ -112,19 +128,9 @@ struct reservation {
 };
 
 struct sock_key {
-	__u32 sip4;
-	__u32 dip4;
-	__u8  family;
-	__u8  pad1;
-	__u16 pad2;
-	__u32 pad3;
 	__u32 sport;
 	__u32 dport;
 } __attribute__((packed));
-
-#ifndef COMPILE_BTF
-#define COMPILE_BTF 1
-#endif
 
 #if COMPILE_BTF == 1
 struct {
@@ -161,8 +167,8 @@ struct {
 } lb_ips_map SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 65535);
+	__uint(type, BPF_MAP_TYPE_SOCKHASH);
+	__uint(max_entries, SOCKET_REDIRECT_MAP_ENTRIES);
 	__type(key, sizeof(struct sock_key));
 	__type(value, sizeof(int));
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -204,7 +210,7 @@ struct bpf_map_def __section("maps") hitch_to_proxy_map = {
 	.type           = BPF_MAP_TYPE_SOCKHASH,
 	.key_size       = sizeof(struct sock_key),
 	.value_size     = sizeof(int),
-	.max_entries    = 65535,
+	.max_entries    = SOCKET_REDIRECT_MAP_ENTRIES,
 	.map_flags      = 0,
 };
 #endif

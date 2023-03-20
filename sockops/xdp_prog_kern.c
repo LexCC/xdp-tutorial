@@ -228,6 +228,7 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 SEC("xdp_pass")
 int  xdp_pass_func(struct xdp_md *ctx)
 {	
+	return XDP_PASS;
 	int eth_type, ip_type;
 	struct ethhdr *eth;
 	struct iphdr *iphdr;

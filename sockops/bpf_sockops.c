@@ -27,11 +27,6 @@ void extract_key4_from_ops(struct bpf_sock_ops *ops, struct flow_key *flow)
 static inline
 void extract_hitch_to_proxy_key(struct bpf_sock_ops *ops, struct sock_key *key)
 {
-    // keep ip and port in network byte order
-    key->dip4 = ops->remote_ip4;
-    key->sip4 = ops->local_ip4;
-    key->family = 1;
-
     // local_port is in host byte order, and
     // remote_port is in network byte order
     key->sport = (bpf_htonl(ops->local_port) >> 16);
@@ -49,11 +44,10 @@ void record_if_hitch_to_proxy(struct bpf_sock_ops *skops)
     ret = sock_hash_update(skops, &hitch_to_proxy_map, &key, BPF_NOEXIST);
     if (ret != 0) {
         printk("sock_hash_update() failed, ret: %d\n", ret);
-        return;
+       // return;
     }
 
-    printk("sockmap: op %d, port %d --> %d\n",
-            skops->op, skops->local_port, bpf_ntohl(skops->remote_port));
+    // printk("sockmap: op %d, port %d --> %d\n", skops->op, skops->local_port, bpf_ntohl(skops->remote_port));
 }
 
 static inline
@@ -103,13 +97,21 @@ int is_local_hitch_to_proxy(struct bpf_sock_ops *skops) {
     }
     int remote_port = bpf_ntohl(skops->remote_port);
     int local_port = skops->local_port;
-    // check hitch <-> proxy
-    if((remote_port != 443 && local_port != 8080) && (remote_port != 8080 && local_port != 443)) {
-        return 0;
+    if(skops->op == BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB) {
+        if(remote_port != 8080) {
+            return 0;
+        }
+        return 1;
+    }
+    if(skops->op == BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB) {
+        if(local_port != 8080) {
+            return 0;
+        }
+        return 1;
     }
     
-    printk("Is hitch to proxy\n");
-    return 1;
+    
+    return 0;
 } 
 
 /* 0: false, 1: true*/
@@ -128,12 +130,17 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
         return 0;
     }
 
+    if(is_local_hitch_to_proxy(skops) == 1) {
+        record_if_hitch_to_proxy(skops);
+    }
+            
     int rv = skops->reply;
     struct timeval timeout;      
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
     switch (skops->op) {
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+            return 0;
             if(is_request_proxy_server(skops) == 0) {
                 return 0;
             }
@@ -149,14 +156,8 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
            extract_key4_from_ops(skops, &flow);
            update_ack_timestamp(&flow);
             break;
-        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-            if(is_local_hitch_to_proxy(skops) == 0) {
-                return 0;
-            }
-            printk("An active connection!!!\n");
-            record_if_hitch_to_proxy(skops);
-            break;
         case BPF_SOCK_OPS_STATE_CB:
+            return 0;
           // printk("old state: %d, new state: %d\n", skops->args[0], skops->args[1]);
             if(skops->args[0] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE) {
                 struct flow_key flow = {};

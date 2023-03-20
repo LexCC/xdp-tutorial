@@ -120,6 +120,7 @@ int ignored_tcp(unsigned int state) {
 __section("filter")
 int cgroup_socket_drop(struct __sk_buff *skb)
 {
+	return SK_PASS;
 	// __u16 port = skb->local_port;
 	// if(port != (unsigned short)SWIFT_PROXY_SERVER_PORT) {
 	// 	return SK_PASS;
