@@ -15,11 +15,11 @@
 #endif
 
 #ifndef ACK_TIME_OUT
-#define ACK_TIME_OUT 10 /* Sec as unit */
+#define ACK_TIME_OUT 600 /* Sec as unit */
 #endif
 
 #ifndef GARBAGE_COLLECT_PERIOD
-#define GARBAGE_COLLECT_PERIOD 2 /* Sec as unit, the value should less than ACK_TIME_OUT */
+#define GARBAGE_COLLECT_PERIOD 300 /* Sec as unit, the value should less than ACK_TIME_OUT */
 #endif
 struct flow_key
 {
