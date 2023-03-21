@@ -139,7 +139,7 @@ struct {
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 100);
+	__uint(max_entries, 1000);
 	__type(key, sizeof(__u32));
 	__type(value, sizeof(char));
 	__uint(pinning, LIBBPF_PIN_BY_NAME);

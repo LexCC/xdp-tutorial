@@ -67,7 +67,11 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     if(skops->family != 2) {
         return 0;
     }
-    
+    __u32 client_ip = skops->remote_ip4;
+    __u32 *is_lbip = bpf_map_lookup_elem(&lb_ips_map, &client_ip);
+	if(!is_lbip) {
+		return 0;
+	}
     // flow->sip4:flow->sport == server IP: server port
     // flow->dip4:flow->dport == client IP: client port
     if((bpf_ntohl((bpf_htonl(skops->local_port) >> 16)) >> 16) != SWIFT_PROXY_SERVER_PORT) {
