@@ -145,11 +145,11 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	// __u64 end = bpf_ktime_get_ns();
 	// printk("Lookup time: %llu\n", end-start);
 
+	char v = DEFAULT_KEY_OR_VALUE;
 	// Not found an initial entry, create one...
 	if(!flows) {
 		struct connection initial_flow;
-		initial_flow.count = 0;
-		char v = DEFAULT_KEY_OR_VALUE;
+		initial_flow.count = 0;char v = DEFAULT_KEY_OR_VALUE;
 		if(bpf_map_update_elem(&existed_counter_map, &initial_flow, &v, BPF_NOEXIST) < 0)
 			printk("XDP: Not found the existed connection map, and initialize error!\n");
 		return XDP_DROP;
@@ -169,11 +169,15 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 
 	reservation->client_ip4 = iphdr->saddr;
 	reservation->client_port = tcphdr->source;
+	char *high_pressure_lock_down = bpf_map_lookup_elem(&psi_map, &v);
 
-	if(flows->count >= MAX_CONN) {
+	if((high_pressure_lock_down && *high_pressure_lock_down == 1) || flows->count >= MAX_CONN) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
 			return XDP_PASS;
+		}
+		if((high_pressure_lock_down && *high_pressure_lock_down == 1)) {
+			printk("Lock door due to high pressure, current count: %d\n", flows->count);
 		}
 //		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
 		return XDP_DROP;

@@ -3,6 +3,7 @@
 XDP_TARGETS  := xdp_prog_kern
 USER_TARGETS := xdp_loader
 USER_TARGETS += xdp_stats
+USER_TARGETS += psi_monitor
 XDP_TARGETS  += bpf_sockops
 XDP_TARGETS  += cgroup-sock-drop
 

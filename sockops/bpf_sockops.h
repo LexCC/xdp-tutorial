@@ -145,6 +145,14 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } lb_ips_map SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 1);
+	__type(key, sizeof(char));
+	__type(value, sizeof(char));
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+} psi_map SEC(".maps");
+
 #else
 
 struct bpf_map_def SEC("maps") existed_counter_map = {
@@ -174,6 +182,14 @@ struct bpf_map_def __section("maps") lb_ips_map = {
 	.key_size       = sizeof(__u32),
 	.value_size     = sizeof(char),
 	.max_entries    = 100,
+	.map_flags      = 0,
+};
+
+struct bpf_map_def __section("maps") psi_map = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.key_size       = sizeof(char),
+	.value_size     = sizeof(char),
+	.max_entries    = 1,
 	.map_flags      = 0,
 };
 #endif
