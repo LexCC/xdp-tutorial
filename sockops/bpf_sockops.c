@@ -46,7 +46,6 @@ void delete_sock_from_maps(struct flow_key *flow) {
         return;
     }
 //    printk("Delete time: %llu\n", bpf_ktime_get_ns()-start);
-    (void) __sync_add_and_fetch(&curr_connection->count, -1);
     printk("Success: delete flow from map\n");
 }
 

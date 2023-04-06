@@ -45,7 +45,7 @@
 #endif
 
 #ifndef MAX_CONN
-#define MAX_CONN 480
+#define MAX_CONN 50000
 #endif
 
 #ifndef SOCKET_TIMEOUT_SEC
@@ -193,9 +193,3 @@ struct bpf_map_def __section("maps") psi_map = {
 	.map_flags      = 0,
 };
 #endif
-
-static __always_inline
-__u32 getBootTimeSec() {
-	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
-}
-

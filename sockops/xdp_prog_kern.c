@@ -135,25 +135,8 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-	__u32 *is_lbip = bpf_map_lookup_elem(&lb_ips_map, &iphdr->saddr);
-	if(!is_lbip) {
-		return XDP_PASS;
-	}
-	__u32 key = DEFAULT_KEY_OR_VALUE;
-	// __u64 start = bpf_ktime_get_ns();
-	struct connection *flows = bpf_map_lookup_elem(&existed_counter_map, &key);
-	// __u64 end = bpf_ktime_get_ns();
-	// printk("Lookup time: %llu\n", end-start);
 
 	char v = DEFAULT_KEY_OR_VALUE;
-	// Not found an initial entry, create one...
-	if(!flows) {
-		struct connection initial_flow;
-		initial_flow.count = 0;char v = DEFAULT_KEY_OR_VALUE;
-		if(bpf_map_update_elem(&existed_counter_map, &initial_flow, &v, BPF_NOEXIST) < 0)
-			printk("XDP: Not found the existed connection map, and initialize error!\n");
-		return XDP_DROP;
-	}
 
 	// Allow tcp fin flag pass, avoid wierd connection state
 	if(tcphdr->fin == 1) {
@@ -161,9 +144,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		return XDP_PASS;
 	}
 	if(tcphdr->rst == 1) {
-		if(bpf_map_delete_elem(&reservation_ops_map, reservation) >= 0) {
-			(void) __sync_add_and_fetch(&flows->count, -1);
-		}
 		return XDP_PASS;
 	}
 
@@ -171,54 +151,16 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	reservation->client_port = tcphdr->source;
 	char *high_pressure_lock_down = bpf_map_lookup_elem(&psi_map, &v);
 
-	if((high_pressure_lock_down && *high_pressure_lock_down == 1) || flows->count >= MAX_CONN) {
+	if((high_pressure_lock_down && *high_pressure_lock_down == 1)) {
 		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
 			return XDP_PASS;
 		}
-		if((high_pressure_lock_down && *high_pressure_lock_down == 1)) {
-			printk("Lock door due to high pressure, current count: %d\n", flows->count);
-		}
-//		printk("NIC: Existed flows are saturated, and not found current flow in map\n");
+		printk("High pressure, drop packet!\n");
 		return XDP_DROP;
 	}
-
-	// packet with tcp syn flag
-	 if(ENABLE_THROTTLE_SYN == 1 && (tcphdr->syn == 1 && tcphdr->ack == 0)) {
-		struct burst_per_open *burst_count = bpf_map_lookup_elem(&burst_connection_map, &key);
-		if(!burst_count) {
-			struct burst_per_open initial_burst;
-			initial_burst.count = 1;
-			initial_burst.last_updated = getBootTimeSec();
-			if(bpf_map_update_elem(&burst_connection_map, &key, &initial_burst, BPF_NOEXIST) < 0)
-				return XDP_DROP;
-			return XDP_PASS;
-		}
-		
-
-		if(burst_count->count > BURST_COUNT) {
-			// NanoSec to Sec
-			__u32 cur_time = getBootTimeSec();
-		//	printk("Diff: %d\n", cur_time - burst_count->last_updated);
-			// Gate not open
-			if((cur_time - burst_count->last_updated) < GATE_OPEN_INTERVAL) {
-				return XDP_DROP;
-			}
-		//	printk("Gate open %d %d!!\n", (cur_time - burst_count->last_updated), GATE_OPEN_INTERVAL);
-			(void) __sync_add_and_fetch(&burst_count->count, -(burst_count->count));
-		}
-
-		
-		(void) __sync_add_and_fetch(&burst_count->count, 1);
-		if(burst_count->count > BURST_COUNT) {
-			printk("Over burst count %d\n", BURST_COUNT);
-			return XDP_DROP;
-		}
-		// For Safety, use atomic operation
-		(void) __sync_add_and_fetch(&burst_count->last_updated, getBootTimeSec() - burst_count->last_updated);
-	 }
-
-	printk("current flow is acceptable, current count: %d\n", flows->count);
+	
+	printk("current flow is acceptable\n");
 
 
 	return XDP_PASS;

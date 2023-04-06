@@ -10,6 +10,11 @@
 #define SK_DROP 0
 #define SK_PASS 1
 
+static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
 static inline
 void extract_key4_from_skb(unsigned int client_ip, unsigned short client_port, struct flow_key *flow)
 {
@@ -40,19 +45,7 @@ int bpf_sock_ipv4(struct flow_key *flow)
 	}
     
 	struct reservation *f = bpf_map_lookup_elem(&reservation_ops_map, flow);
-	if(f) {
-		(void) __sync_add_and_fetch(&f->syn_ack_retry, 1);
-		if(f->syn_ack_retry > TCP_MAX_SYN_ACK_RETRY) {
-			bpf_map_delete_elem(&reservation_ops_map, flow);
-			(void) __sync_add_and_fetch(&curr_connection->count, -1);
-			return SK_DROP;
-		}
-		return SK_PASS;
-	}
 	
-	if(curr_connection->count >= MAX_CONN) {
-		return SK_DROP;
-	}
 //	__u64 start = bpf_ktime_get_ns();
 	if(!f) {
 		struct reservation reserv;
@@ -66,7 +59,6 @@ int bpf_sock_ipv4(struct flow_key *flow)
         printk("Failed: failed to update map, return code: %d\n", ret);
 		return SK_DROP;
     } else {
-        (void) __sync_add_and_fetch(&curr_connection->count, 1);
         printk("Success: Add flow to existed connection.\n");
 		return SK_PASS;
     }
