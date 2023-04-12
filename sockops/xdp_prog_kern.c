@@ -135,7 +135,6 @@ static __always_inline int parse_tcphdr(struct hdr_cursor *nh,
 static __always_inline
 int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct flow_key *reservation)
 {
-
 	char v = DEFAULT_KEY_OR_VALUE;
 
 	// Allow tcp fin flag pass, avoid wierd connection state
@@ -160,8 +159,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 		return XDP_DROP;
 	}
 	
-	printk("current flow is acceptable\n");
-
 
 	return XDP_PASS;
 }

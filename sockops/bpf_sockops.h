@@ -56,6 +56,10 @@
 #define TCP_MAX_SYN_ACK_RETRY 3
 #endif
 
+#ifndef MAX_HTTP_REQS_PER_TCP
+#define MAX_HTTP_REQS_PER_TCP 500
+#endif
+
 #ifndef BURST_COUNT
 #define BURST_COUNT (MAX_CONN + (MAX_CONN >> 1))
 #endif
@@ -105,6 +109,9 @@ struct burst_per_open {
 struct reservation {
 	__u32 last_updated;
 	__u32 syn_ack_retry;
+	__u32 pkt_count;
+	__u32 pkt_per_sec;
+	__u32 pkt_per_sec_last_updated;
 };
 
 #ifndef COMPILE_BTF

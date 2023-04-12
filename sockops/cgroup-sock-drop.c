@@ -51,15 +51,16 @@ int bpf_sock_ipv4(struct flow_key *flow)
 		struct reservation reserv;
 		reserv.last_updated = getBootTimeSec();
 		reserv.syn_ack_retry = 0;
+		reserv.pkt_count = 0;
+		reserv.pkt_per_sec = 0;
+		reserv.pkt_per_sec_last_updated = 0;
 		ret = bpf_map_update_elem(&reservation_ops_map, flow, &reserv, BPF_NOEXIST);
 	}
 //	__u64 end = bpf_ktime_get_ns();
 //	printk("Update time: %llu\n", end-start);
     if(ret != 0) {
-        printk("Failed: failed to update map, return code: %d\n", ret);
 		return SK_DROP;
     } else {
-        printk("Success: Add flow to existed connection.\n");
 		return SK_PASS;
     }
 } 
@@ -69,9 +70,6 @@ int ignored_tcp(unsigned int state) {
 	int ans = 0;
 	switch (state)
 	{
-	case BPF_TCP_ESTABLISHED:
-		ans = 1;
-		break;
 	case BPF_TCP_FIN_WAIT1:
 		ans = 1;
 		break;
@@ -137,10 +135,39 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 			if(tcp->source != bpf_htons(SWIFT_PROXY_SERVER_PORT)) {
 				return SK_PASS;
 			}
+
+			struct flow_key flow;
+			extract_key4_from_skb(ip->daddr, tcp->dest, &flow);
 			// TODO: if state == Established, but socket not exists in map, bpf_sk_release(sk)
 			if(skb->sk) {
 				if(ignored_tcp(skb->sk->state)) {
 					return SK_PASS;
+				}
+				if(skb->sk->state == BPF_TCP_ESTABLISHED) {
+					struct reservation *reserv = bpf_map_lookup_elem(&reservation_ops_map, &flow);
+					// if(!reserv) {
+					// 	// Is LB IP, and not found in map!
+					// 	struct bpf_sock *need_release = skb->sk;
+					// 	if(need_release)
+					// 		bpf_sk_release(need_release);
+					// 	return SK_DROP;
+					// }
+					if(reserv) {	
+						(void) __sync_add_and_fetch(&reserv->pkt_count, 1);
+						__u32 now = getBootTimeSec();
+						if(reserv->pkt_per_sec_last_updated - now >= 1) {
+							reserv->pkt_count = 0;
+							reserv->pkt_per_sec_last_updated = now;
+							int res = bpf_map_update_elem(&reservation_ops_map, &flow, reserv, BPF_EXIST);
+							if(res < 0) {
+								printk("Failed: failed to update map, return code: %d\n", res);
+							}
+						}
+						if(reserv->pkt_count >= MAX_HTTP_REQS_PER_TCP) {
+							return SK_DROP;
+						}
+						return SK_PASS;
+					}
 				}
 			}
 			
@@ -153,8 +180,6 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 				return SK_PASS;
 			}
 
-			struct flow_key flow;
-			extract_key4_from_skb(ip->daddr, tcp->dest, &flow);
 			if(tcp->syn == 1 && tcp->ack == 1) {
 				printk("Socket: Receive syn-ack flag, try to add entry to existed connection...\n");
 				return bpf_sock_ipv4(&flow);

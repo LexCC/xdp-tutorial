@@ -3,6 +3,12 @@
 #include <netinet/tcp.h>
 #include "bpf_sockops.h"
 
+
+static __always_inline
+__u32 getBootTimeSec() {
+	return (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+}
+
 /*
  * extract the key identifying the socket source of the TCP event
  */
@@ -54,6 +60,9 @@ void update_ack_timestamp(struct flow_key *flow) {
     struct reservation value;
     value.last_updated = 0;
     value.syn_ack_retry = 0;
+    value.pkt_count = 0;
+	value.pkt_per_sec = 0;
+    value.pkt_per_sec_last_updated = getBootTimeSec();
     if(bpf_map_update_elem(&reservation_ops_map, flow, &value, BPF_EXIST) < 0) {
         printk("Can't update ack timestamp\n");
     }
