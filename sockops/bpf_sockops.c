@@ -2,6 +2,7 @@
 #include <asm-generic/socket.h>
 #include <netinet/tcp.h>
 #include "bpf_sockops.h"
+#include <linux/in.h>
 
 
 static __always_inline
@@ -52,7 +53,6 @@ void delete_sock_from_maps(struct flow_key *flow) {
         return;
     }
 //    printk("Delete time: %llu\n", bpf_ktime_get_ns()-start);
-    printk("Success: delete flow from map\n");
 }
 
 static inline
@@ -90,8 +90,13 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
     struct timeval timeout;      
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
+    int tos = 0x38;
     switch (skops->op) {
+        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+            bpf_setsockopt(skops, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
+            break;
         case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+            bpf_setsockopt(skops, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
             bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG);
             // struct linger ling;
             // ling.l_onoff = 1;

@@ -153,7 +153,7 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 					// 	return SK_DROP;
 					// }
 					if(reserv) {	
-						(void) __sync_add_and_fetch(&reserv->pkt_count, 1);
+						// (void) __sync_add_and_fetch(&reserv->pkt_count, 1);
 						__u32 now = getBootTimeSec();
 						if(reserv->pkt_per_sec_last_updated - now >= 1) {
 							reserv->pkt_count = 0;
@@ -163,20 +163,15 @@ int cgroup_socket_drop(struct __sk_buff *skb)
 								printk("Failed: failed to update map, return code: %d\n", res);
 							}
 						}
-						if(reserv->pkt_count >= MAX_HTTP_REQS_PER_TCP) {
-							return SK_DROP;
-						}
 						return SK_PASS;
 					}
 				}
 			}
 			
 			if(tcp->fin == 1) {
-				printk("Socket: Let TCP packet pass\n");
 				return SK_PASS;
 			}
 			if(tcp->rst == 1) {
-				printk("RST!!\n");
 				return SK_PASS;
 			}
 

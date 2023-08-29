@@ -139,7 +139,6 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 
 	// Allow tcp fin flag pass, avoid wierd connection state
 	if(tcphdr->fin == 1) {
-		printk("XDP: Let TCP fin packet pass\n");
 		return XDP_PASS;
 	}
 	if(tcphdr->rst == 1) {
@@ -149,17 +148,23 @@ int xdp_stats_record_action(struct iphdr *iphdr, struct tcphdr *tcphdr, struct f
 	reservation->client_ip4 = iphdr->saddr;
 	reservation->client_port = tcphdr->source;
 	char *high_pressure_lock_down = bpf_map_lookup_elem(&psi_map, &v);
-
+	struct reservation *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
+	__u32 now = (__u32) (bpf_ktime_get_ns() / NANOSEC_PER_SEC);
+	if(first_item && first_item->pkt_per_sec_last_updated - now < 1 && first_item->pkt_count >= MAX_HTTP_REQS_PER_TCP) {
+		printk("Dropped in XDP due to max PPS\n");
+		return XDP_DROP;
+	}
 	if((high_pressure_lock_down && *high_pressure_lock_down == 1)) {
-		struct flow_key *first_item = bpf_map_lookup_elem(&reservation_ops_map, reservation);
 		if(first_item) {
 			return XDP_PASS;
 		}
 		printk("High pressure, drop packet!\n");
 		return XDP_DROP;
 	}
+	if(first_item) {
+		(void) __sync_add_and_fetch(&first_item->pkt_count, 1);
+	}
 	
-
 	return XDP_PASS;
 }
 

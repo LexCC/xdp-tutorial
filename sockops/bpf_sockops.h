@@ -41,7 +41,7 @@
 #endif
 
 #ifndef SWIFT_PROXY_SERVER_PORT
-#define SWIFT_PROXY_SERVER_PORT 443
+#define SWIFT_PROXY_SERVER_PORT 5001
 #endif
 
 #ifndef MAX_CONN
@@ -57,7 +57,7 @@
 #endif
 
 #ifndef MAX_HTTP_REQS_PER_TCP
-#define MAX_HTTP_REQS_PER_TCP 500
+#define MAX_HTTP_REQS_PER_TCP 100
 #endif
 
 #ifndef BURST_COUNT
