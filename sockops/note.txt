@@ -1,5 +1,8 @@
 iperf -s -i 1 -N --mss 536 -l 100M
-iperf -c IP -b 1mpps -t 100 -N --mss 536 -l 100K  -P 1000
+# base line
+iperf -c 10.52.163.161 -b 1mpps -t 100 -N --mss 536 -l 100K
+# stress testing
+iperf -c 10.52.163.161 -b 1000mpps -t 100 -N --mss 536 -l 10M  -P 1000
 vnstat -l -i ens4f0
 
 
@@ -7,3 +10,6 @@ vnstat -l -i ens4f0
 option=$1
 sudo iptables $option INPUT -p tcp --dport 5001 -j DROP
 sudo iptables $option INPUT -p tcp --dport 5001 -m hashlimit --hashlimit 100/s --hashlimit-mode srcport --hashlimit-name foo -j ACCEPT
+
+sudo ./cpu_on_off.sh 0 3 70
+iperf -c 10.52.163.161 -b 10mpps -t 100 -N --mss 536 -l 1M  -P 1000
